@@ -1,5 +1,6 @@
 require "json"
 require "kemal"
+require "./protocol"
 
 # Inquirer's server.
 #
@@ -16,6 +17,7 @@ require "kemal"
 # Powered by Kemal.
 module Inquirer
   class Server
+    include Protocol
 
     # Makes a Server.
     #
@@ -42,7 +44,7 @@ module Inquirer
       #
       Response.ok
     rescue JSON::ParseException
-      Response.invalid
+      Response.err
     end
 
     # Defines all routes.
@@ -61,12 +63,12 @@ module Inquirer
         #
         response =
           if content.nil? || content.empty?
-            Response.invalid
+            Response.err
           else
             begin
               execute Request.from_json(content)
             rescue JSON::ParseException
-              Response.invalid
+              Response.err
             end
           end
 

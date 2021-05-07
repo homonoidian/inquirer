@@ -71,7 +71,7 @@ module Inquirer
             Console.logging(
               before: "Stopping the daemon.",
               after: stopped ? "Stopped the daemon." : "The daemon is not running.",
-              given: stopped = Client.running? && Client.command(Command::Die)
+              given: stopped = Client.running? && Client.command(Protocol::Command::Die)
             )
           end
         end

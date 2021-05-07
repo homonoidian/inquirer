@@ -1,8 +1,11 @@
 require "json"
+require "./protocol"
 require "http/client"
 
 module Inquirer
   class Client
+    include Protocol
+
     @@host = "0.0.0.0"
     @@port = 3000
 
@@ -30,7 +33,7 @@ module Inquirer
       #
       response = Response.from_json(content.not_nil!)
 
-      if response.status.invalid?
+      if response.status.err?
         raise InquirerError.new
       end
 

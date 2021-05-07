@@ -1,0 +1,28 @@
+name: inquirer
+version: 0.1.0
+
+# authors:
+#   - name <email@example.com>
+
+# description: |
+#   Short description of inquirerd
+
+targets:
+  inquirer:
+    main: src/inquirer.cr
+
+dependencies:
+  kemal:
+    github: kemalcr/kemal
+  inotify:
+    github: petoem/inotify.cr
+  commander:
+    github: mrrooijen/commander
+  fancyline:
+    github: Papierkorb/fancyline
+
+# development_dependencies:
+#   webmock:
+#     github: manastech/webmock.cr
+
+# license: MIT

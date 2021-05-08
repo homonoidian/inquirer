@@ -2,85 +2,61 @@ require "json"
 require "kemal"
 require "./protocol"
 
-# Inquirer's server.
-#
-# Inquirer communicates with Ven (and Ven communicates with
-# Inquirer) through Orchestra, which itself sends & receives
-# requests from and to the Inquirer server.
-#
-# The Inquirer server is a simple RESTful API that acceps
-# JSON requests and sends JSON responses.
-#
-# A simple status page is also provided: users can inspect
-# the scanned Ven distincts by navigating to this page.
-#
-# Powered by Kemal.
 module Inquirer
   class Server
     include Protocol
 
-    # Makes a Server.
-    #
-    # *daemon* is the daemon that started this server and
-    # that is controlled by this server.
-    def initialize(@daemon : Daemon)
+    # Makes a Server from the given *config* and *daemon*,
+    # which the new server will look after.
+    def initialize(@config : Config, @daemon : Daemon)
     end
 
-    # Executes a Request.
+    # Executes the given *request*. Returns the appropriate
+    # `Response`.
     def execute(request : Request)
-      Console.progress("Executing: #{request}")
+      Console.log("Executing #{request}")
 
       case request.command
+      in .ls?
+        # TODO: transmit them to the client
+        puts @daemon.watchables[...100].join("\n")
       in .die?
-        # Wait for a second so we can send the OK response.
-        #
+        # So there is time to send the OK response to the client
+        # that requested the death.
         spawn @daemon.stop(wait: 1.second)
       in .ping?
         # pass
       end
 
       # Invalid stuff cannot get down here, so we're sure
-      # we're ok.
-      #
+      # all is ok.
       Response.ok
-    rescue JSON::ParseException
+    end
+
+    # Parses the given JSON *query* and formulates a proper
+    # `Protocol::Response`.
+    def respond_to(query : String?) : Response
+      begin
+        unless query.nil? || query.empty?
+          return execute Request.from_json(query)
+        end
+      rescue JSON::ParseException
+        # pass
+      end
+
       Response.err
     end
 
-    # Defines all routes.
-    #
-    # Currently, those are:
-    #   - `POST /` Executes a command.
-    private def route!
-      # Dispatches to execute().
-      #
+    # Starts serving the Inquirer API.
+    def serve
       post "/" do |env|
         env.response.content_type = "application/json"
-
-        content = env.request.body.try(&.gets_to_end)
-
-        # Be graceful even on syntax errors!
-        #
-        response =
-          if content.nil? || content.empty?
-            Response.err
-          else
-            begin
-              execute Request.from_json(content)
-            rescue JSON::ParseException
-              Response.err
-            end
-          end
-
+        query = env.request.body.try(&.gets_to_end)
+        response = respond_to(query)
         response.to_json
       end
-    end
 
-    # Starts listening on the given *port*.
-    def listen(port : Int32 = 3000)
-      route!
-
-      Kemal.run(port, args: nil) do |config|
+      Kemal.run(@config.port, args: nil) do |config|
         Kemal.config.shutdown_message = false
       end
     end

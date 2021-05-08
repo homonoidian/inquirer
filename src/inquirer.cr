@@ -1,92 +1,136 @@
 require "commander"
+require "fancyline"
 require "./inquirer/*"
 
 module Inquirer
   VERSION = "0.1.0"
 
-  module CLI
-    extend self
+  # Inquirer CLI constructs an `Inquirer::Config` object and
+  # passes it to the appropriate Inquirer facilities (those
+  # which the user requested, e.g., `Inquirer::Daemon` for
+  # `inquirer start`, etc.).
+  class CLI
+    @config = Inquirer::Config.new
 
-    ORIGIN = ENV["ORIGIN"]? || ENV["HOME"]?
+    # Executes shell input *input* using the given *client*.
+    #
+    # Raises `InquirerError` on invalid command and on
+    # connection error.
+    def shell_for(client : Client, input : String)
+      command = Protocol::Command.from_json(input.dump)
+      client.command(command)
+    rescue JSON::ParseException
+      raise InquirerError.new("invalid command")
+    rescue Socket::ConnectError
+      raise InquirerError.new("no connection with the server")
+    end
 
-    # Returns the initialized command line arguments parser.
-    private def commands
+    # Returns the Commander command line interface for Inquirer.
+    def main
       Commander::Command.new do |cmd|
-        cmd.use = "inquirer"
-        cmd.long = "a command-line utility to work with Ven::Inquirer"
+        cmd.use   = "inquirer [global options --]"
+        cmd.long  = "Command line interface to the Inquirer infrastructure."
 
-        # inquirer start
-        cmd.commands.add do |cmd|
-          cmd.use = "start"
-          cmd.short = "Start the Inquirer daemon."
-          cmd.long = cmd.short
-
-          # -p, --port
-          cmd.flags.add do |flag|
-            flag.name = "port"
-            flag.short = "-p"
-            flag.long = "--port"
-            flag.default = 3000
-            flag.description =
-              "Makes Inquirer API server listen " \
-              "on the port that was specified."
-          end
-
-          # -d, --detached
-          cmd.flags.add do |flag|
-            flag.name = "detached"
-            flag.short = "-d"
-            flag.long = "--detached"
-            flag.default = false
-            flag.description =
-              "Makes the daemon run in background."
-          end
-
-          cmd.run do |options, arguments|
-            origin = ORIGIN.not_nil!
-
-            unless origin && File.exists?(origin) && File.directory?(origin)
-              Console.exit(1,
-                "Please provide valid $ORIGIN or $HOME so " \
-                "Inquirer knows where to start working")
-            end
-
-            # Start the daemon. The daemon will check if it
-            # is the only one itself.
-            #
-            Daemon.new(origin).start(
-              port: options.int["port"].to_i32,
-              detach: options.bool["detached"],
-            )
-          end
+        # -p, --port
+        cmd.flags.add do |flag|
+          flag.name        = "port"
+          flag.short       = "-p"
+          flag.long        = "--port"
+          flag.default     = 3000
+          flag.description = "Set referent Inquirer server port."
         end
 
-        # inquirer stop
-        cmd.commands.add do |cmd|
-          cmd.use = "stop"
-          cmd.short = "Stop the Inquirer daemon."
-          cmd.long = cmd.short
-
-          cmd.run do |options, arguments|
-            Console.logging(
-              before: "Stopping the daemon.",
-              after: stopped ? "Stopped the daemon." : "The daemon is not running.",
-              given: stopped = Client.running? && Client.command(Protocol::Command::Die)
-            )
-          end
-        end
-
+        # inquirer [global options]
         cmd.run do |options, arguments|
-          puts cmd.help
+          Console.quit(cmd.help) if arguments.empty?
+
+          # Build the config.
+          @config.port = options.int["port"].to_i
+
+          # Interpret the command that ended up in the arguments.
+          cmd.commands.each_with_index do |command, index|
+            if command.use == arguments.first?
+              break Commander.run(command, arguments[1...])
+            elsif index == cmd.commands.size - 1 # last?
+              Console.quit(cmd.help)
+            end
+          end
+        end
+
+        # start [...]
+        cmd.commands.add do |cmd|
+          cmd.use   = "start"
+          cmd.short = "Start Inquirer daemon & server."
+          cmd.long  = cmd.short
+
+          # -d, --detach
+          cmd.flags.add do |flag|
+            flag.name        = "detached"
+            flag.short       = "-d"
+            flag.long        = "--detach"
+            flag.default     = false
+            flag.description = "Run Inquirer in background."
+          end
+
+          # -i, --ignore
+          cmd.flags.add do |flag|
+            flag.name        = "ignore"
+            flag.short       = "-i"
+            flag.long        = "--ignore"
+            flag.default     = "node_modules"
+            flag.description = "Directories that are not watched (comma-separated)."
+          end
+
+          cmd.run do |options, arguments|
+            @config.ignore += options.string["ignore"].split(",")
+            @config.detached = options.bool["detached"]
+            Daemon.start(@config)
+          end
+        end
+
+        # stop [...]
+        cmd.commands.add do |cmd|
+          cmd.use   = "stop"
+          cmd.short = "Stop Inquirer daemon & server."
+          cmd.long  = cmd.short
+
+          cmd.run do |options, arguments|
+            Client.from(@config)
+              .running!(exit: true)
+              .command(Protocol::Command::Die)
+            Console.done("Stopped.")
+          end
+        end
+
+        # shell [...]
+        cmd.commands.add do |cmd|
+          cmd.use   = "shell"
+          cmd.short = "Start an interactive shell to talk to Inquirer."
+          cmd.long  = cmd.short
+
+          cmd.run do |options, arguments|
+            fancy  = Fancyline.new
+            client = Client.from(@config).running!(exit: true)
+
+            while input = fancy.readline("@ > ")
+              begin
+                puts shell_for(client, input)
+              rescue e : InquirerError
+                Console.error(e.message || "unknown error")
+              end
+            end
+          end
         end
       end
     end
 
-    # Runs the Inquirer command-line utility.
-    def main
-      Commander.run(commands, ARGV)
+    # Starts Inquirer command line interface from the
+    # given *argv*.
+    def self.start(argv)
+      Commander.run(new.main, argv)
     end
   end
 end
 
-Inquirer::CLI.main
+
+Inquirer::CLI.start(ARGV)

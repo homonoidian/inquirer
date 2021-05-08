@@ -6,16 +6,15 @@ module Inquirer
   class Client
     include Protocol
 
-    @@host = "0.0.0.0"
-    @@port = 3000
+    def initialize(@config : Config)
+    end
 
-    def self.send(request : Request) : Response
-      # This will (hopefully) be a Response from the Inquirer
-      # server. We raise InquirerError if it's invalid / is
-      # not a Response.
-      #
+    # Sends the given *request* to the Inquirer server.
+    #
+    # Raises `InquirerError` if the server did not respond.
+    def send(request : Request) : Response
       response = HTTP::Client.post(
-        url: "#{@@host}:#{@@port}",
+        url: "0.0.0.0:#{@config.port}",
         body: request.to_json,
         headers: HTTP::Headers{
           "User-Agent" => "Inquirer Client",
@@ -23,33 +22,37 @@ module Inquirer
         }
       )
 
-      content = response.body
-
-      # We assume content is not nil because the server is
-      # always right!
-      #
-      # We assume that `from_json` won't fail for the same
-      # exact reason.
-      #
-      response = Response.from_json(content.not_nil!)
-
-      if response.status.err?
-        raise InquirerError.new
+      unless body = response.body
+        raise InquirerError.new("server error: empty response")
       end
 
-      response
-    rescue JSON::ParseException
-      raise InquirerError.new("server error: wrong response format")
+      Response.from_json(body)
     end
 
-    # Returns whether the Inquirer server is running.
+    # Asserts the server is running.
     #
-    # NOTE: It sends a Ping command to the server and should
-    # not be abused.
-    def self.running? : Bool
-      # If we get any result, even Status::Invalid, we're
-      # still ok.
-      #
+    # If assertion failed and *exit* is true, uses `Console.exit`;
+    # otherwise, uses `Console.error`.
+    #
+    # If assertion succeeded, returns self.
+    def running!(exit = false)
+      unless running?
+        if exit
+          Console.exit(1,
+            "assertion failed: server is not running " \
+            " on port #{@config.port}")
+        else
+          Console.error(
+            "assertion failed: server is not running " \
+            " on port #{@config.port}")
+        end
+      end
+
+      self
+    end
+
+    # Returns whether the server is running.
+    def running? : Bool
       !!send Request.new(Command::Ping)
     rescue Socket::ConnectError
       false
@@ -58,12 +61,13 @@ module Inquirer
     # Sends a request to execute the given *command*.
     #
     # Assumes the server is running.
-    #
-    # Returns the `Response`.
-    #
-    # May raise `InquirerError`.
-    def self.command(command : Command)
+    def command(command : Command) : Response
       send Request.new(command)
+    end
+
+    # Makes a client from the given *config*.
+    def self.from(config : Config)
+      new(config)
     end
   end
 end

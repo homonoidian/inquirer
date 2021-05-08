@@ -3,10 +3,11 @@ require "./console"
 require "../contrib/daemonize"
 
 module Inquirer
+  # The Inquirer daemon listens for changes in watchables
+  # (watchable directories), which are recursively looked
+  # up from the root (origin) directory, and reports those
+  # changes to the Inquirer server.
   class Daemon
-    # Which directories should not be searched in.
-    IGNORES = %(node_modules)
-
     # Maximum amount of watches that this system allows.
     MAX_WATCHES = File.read("/proc/sys/fs/inotify/max_user_watches").to_i
 
@@ -15,15 +16,13 @@ module Inquirer
 
     @watcher = Inotify::Watcher.new
 
-    # Makes a Daemon and prepares it for starting.
-    #
-    # Daemon will listen for Ven-specific changes in *origin*,
-    # as well as all of its subdirectories, subdirectories of
-    # that etc. Depth (amount of nesting) is arbitrary (but
-    # see `watchables`).
-    def initialize(@root : String)
-      Console.logging(
-        before: "Searching for watchables in #{@root}...",
+    # Makes an Inquirer daemon from the given *config*.
+    def initialize(@config : Config)
+      @origin = @config.origin.as String
+      @ignore = @config.ignore.as Array(String)
+
+      Console.comment(
+        before: "Searching for watchables in #{@origin}...",
         after:  "Found #{@watchables.size} watchables.",
         given:  @watchables = watchables,
       )
@@ -32,88 +31,64 @@ module Inquirer
 
       unless watchable
         Console.exit(1,
-          "Your system does not allow #{@watchables.size} watches; " \
-          "please restrict watchables by setting $ORIGIN.")
+          "Your system does not allow #{@watchables.size} " \
+          "watches; please choose a simpler origin directory.")
       end
     end
 
-    # Returns a list of watchable directories.
+    # Makes a list of watchable directories.
     #
     # Directories that are not watchable:
     # - Those whose name is prefixed with an underscore;
     # - Those that are symlinks;
     # - Those that are hidden;
-    # - Those that are in `IGNORES`.
+    # - Those that are ignored.
     #
     # Depth (amount of nesting) is arbitrary. Searches through
-    # everything, so may take a long time.
+    # everything under the origin directory, therefore may take
+    # a long time.
     def watchables
-      result = Dir["#{@root}/**/"].reject do |path|
+      result = Dir["#{@origin}/**/"].reject do |path|
         Console.update("⮡ #{path}")
 
         path.split("/", remove_empty: true).any? { |part|
           part.starts_with?('_') ||
           part.starts_with?('.') ||
-          part.in?(IGNORES)
+          part.in?(@ignore)
         }
       end
 
       # Output the final newline (`Display.update` doesn't
       # produce one):
-      #
       puts
 
       result
     end
 
-    # Handles a change in any of the watchables.
+    # Handles a change in a watchable.
     #
     # Returns nothing.
     def handle(event : Inotify::Event)
       puts event
     end
 
-    # Starts this daemon.
-    #
-    # Detaches (daemonizes) if *detach* is true.
-    #
-    # *port* is the port on which the API server (`Inquirer::Server`
-    # will run).
-    #
-    # All control except intercepting the changes in watchables
-    # is transferred to Kemal.
-    #
-    # Returns nothing.
-    def start(port = 3000, detach = false)
-      # Check if another daemon is running on this port.
-      #
-      if Client.running?
-        Console.exit(1,
-          "Another instance of Inquirer is running at port #{port}. " \
-          "Consider stopping it or choose a different port.")
-      end
-
+    # Starts this daemon. Detaches (daemonizes) if `Config.detached`.
+    # Returns nothing. Does not check whether another daemon is
+    # running on the same port.
+    def start
       # Register the watchers for each watchable.
-      #
-      @watchables.each do |watchable|
-        @watcher.watch(watchable)
-      end
-
+      @watchables.each { |watchable| @watcher.watch(watchable) }
       # Set the inotify handler.
-      #
-      @watcher.on_event do |event|
-        handle(event)
-      end
+      @watcher.on_event { |event| handle(event) }
 
-      Console.done("Listening for changes in '#{@root}'.")
-      Console.done("API running on port #{port}.")
+      Console.done("Listening for changes in '#{@origin}'.")
+      Console.done("API running on port #{@config.port}.")
 
-      Daemonize.daemonize if detach
+      Daemonize.daemonize if @config.detached
 
       # Start the API server. From now on, Kemal is in control.
       # Kemal will occupy the fiber and keep inotify running.
-      #
-      Server.new(self).listen(port)
+      Server.new(@config, self).serve
     end
 
     # Gracefully (in theory) stops this daemon.
@@ -121,17 +96,23 @@ module Inquirer
     # Should unregister all inotify watchers and stop the
     # server.
     #
-    # Curiously, this suicides the `Server`, so it won't say
-    # 'farewell!'. It can delay the death using *wait*, though.
-    def stop(wait : Time::Span = nil)
-      Console.progress("I will die.")
-      sleep wait unless wait.nil?
+    # Curiously, this suicides the server, so it won't respond
+    # with 'goodbye!'. It can wait for some *time* before dying,
+    # though.
+    def stop(wait time : Time::Span = nil)
+      Console.log("I will die.")
+      sleep time unless time.nil?
 
-      Console.progress("Closing watchers.")
+      Console.log("Closing watchers.")
       @watcher.close
 
       Console.done("Exiting.")
       exit 0
+    end
+
+    # A shorthand for `initialize` followed by `start`.
+    def self.start(config : Config)
+      new(config).start
     end
   end
 end

@@ -4,6 +4,8 @@ module Inquirer::Protocol
   # Commands are used to make the Inquirer server fetch or
   # do something.
   enum Command
+    # Lists the watchables.
+    Ls
     # Stops the daemon and the server. Should return status OK.
     Die
     # Checks for connection/existence. Should return status OK.

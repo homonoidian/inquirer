@@ -1,59 +1,69 @@
 require "colorize"
 
-# Provides Inquirer with various printing utilities.
+# Provides Inquirer with standardized style & utilities for
+# printing stuff on the screen.
 module Inquirer::Console
   extend self
 
-  # The amount of columns in terminal.
+  # The amount of columns in the terminal.
   COLUMNS = ENV["COLUMNS"]?.try(&.to_i) || 80
 
-  # Done plaque background color.
+  # Log plaque foreground color.
+  LOG_FORE = Colorize::ColorRGB.new(144, 202, 249)
+  # Done plaque foreground color.
   DONE_FORE = Colorize::ColorRGB.new(165, 214, 167)
-  # Error plaque background color.
+  # Error plaque foreground color.
   ERROR_FORE = Colorize::ColorRGB.new(239, 154, 154)
-  # Progress plaque background color.
-  PROGRESS_FORE = Colorize::ColorRGB.new(144, 202, 249)
 
-  # Makes a plaque from the given plaque text *text* and
-  # *fore* and *back* colors.
+  # Makes a plaque from the given plaque text *text* and of
+  # *fore* foreground color.
   private def plaque(text : String, fore : Colorize::ColorRGB)
     "[#{text}]".colorize.bold.fore(fore)
   end
 
+  # Displays a log plaque followed by *message*.
+  #
+  # Returns nothing.
+  def log(message : String)
+    puts "#{plaque("LOG", LOG_FORE)} #{message}"
+  end
+
   # Displays a done plaque followed by *message*.
+  #
+  # Returns nothing.
   def done(message : String)
     puts "#{plaque("DONE", DONE_FORE)} #{message}"
   end
 
   # Displays an error plaque followed by *message*.
+  #
+  # Returns nothing.
   def error(message : String)
     puts "#{plaque("ERROR", ERROR_FORE)} #{message}"
   end
 
-  # Displays a progress plaque followed by *message*.
-  def progress(message : String)
-    puts "#{plaque("PROGRESS", PROGRESS_FORE)} #{message}"
+  # Prints the given *message* and exits with status 0.
+  def quit(with message : String)
+    puts message
+    exit 0
   end
 
-  # Exits with status *status*.
+  # Exits with the given *status*.
   #
-  # If *status* is not zero, an `error` with the given
-  # *message* is printed.
+  # If *status* is nonzero, an `error` with the given *message*
+  # will be printed before exiting.
   def exit(status : Int32, message : String)
     error(message) unless status == 0
-
     exit(status)
   end
 
-  # Displays *message*, assuming it will change the
-  # next moment.
+  # Prints the given *message* so that it's possible to change
+  # it in-place.
   #
-  # Works like Crystal's `print`, but returns the carriage
-  # to the start of the line and clears that line before
-  # printing.
+  # Returns the carriage to the start of the line, clears
+  # the line, and prints *message* with no trailing newline.
   #
-  # Cuts off the *message* if it is too long to display on
-  # one line.
+  # Cuts off *message* if it doesn't fit (see `COLUMNS`).
   #
   # Returns nothing.
   def update(message : String)
@@ -64,12 +74,10 @@ module Inquirer::Console
     print "\r#{message}#{" " * (COLUMNS - message.size)}"
   end
 
-  # Logs `progress` with message *before*, executes *given*
-  # and logs `done` with message *after*.
-  #
-  # Returns whatever *given* returned.
-  macro logging(before, after, given)
-    Console.progress({{before}})
+  # Returns *given*, logging message *before* beforehand and
+  # message *after* afterwards.
+  macro comment(before, after, given)
+    Console.log({{before}})
     %result = {{given}}
     Console.done({{after}})
     %result

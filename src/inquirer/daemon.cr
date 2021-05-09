@@ -3,17 +3,17 @@ require "./console"
 require "../contrib/daemonize"
 
 module Inquirer
-  # The Inquirer daemon listens for changes in watchables
-  # (watchable directories), which are recursively looked
-  # up from the root (origin) directory, and reports those
-  # changes to the Inquirer server.
+  # The Inquirer daemon listens for certain changes in watchables
+  # (watchable directories), which are recursively looked up from
+  # the root (origin) directory, and reports those changes to the
+  # Inquirer server.
   class Daemon
     include Protocol
 
     # Maximum amount of watches that this system allows.
     MAX_WATCHES = File.read("/proc/sys/fs/inotify/max_user_watches").to_i
 
-    # Returns the watchable directories found by this daemon.
+    # Returns the directories that this daemon watches.
     getter watchables : Array(String)
 
     @watcher = Inotify::Watcher.new
@@ -26,23 +26,25 @@ module Inquirer
       Console.comment(
         before: "Searching for watchables in #{@origin}...",
         after:  "Found #{@watchables.size} watchables.",
-        given:  @watchables = watchables!,
+        given:  @watchables = watchables!
       )
 
-      watchable = MAX_WATCHES > @watchables.size
+      allowed = MAX_WATCHES > @watchables.size
 
-      unless watchable
+      unless allowed
         Console.exit(1,
           "Your system does not allow #{@watchables.size} " \
-          "watches; please choose a simpler origin directory.")
+          "watches; please choose a simpler origin directory.",
+        )
       end
     end
 
-    # Makes a list of watchable (see `watchable?`) directories.
+    # Fills up this daemon's list of watchable (see `watchable?`)
+    # directories.
     #
-    # Depth (amount of nesting) is arbitrary. Searches through
-    # everything under the origin directory, therefore may take
-    # a long time.
+    # Depth (amount of nesting) is unlimited. Searches through
+    # everything under the origin directory, so may take a
+    # long time.
     def watchables!
       result = Dir["#{@origin}/**/"].reject do |path|
         Console.update("⮡ #{path}")
@@ -50,9 +52,7 @@ module Inquirer
         !watchable?(path)
       end
 
-      # Output the final newline (`Display.update` doesn't
-      # produce one):
-      puts
+      puts # Output the final newline.
 
       result
     end
@@ -61,9 +61,9 @@ module Inquirer
     #
     # Directories that are not watchable:
     # - Those whose name is prefixed with an underscore;
+    # - Those that are ignored through the config;
     # - Those that are symlinks;
-    # - Those that are hidden;
-    # - Those that are ignored.
+    # - Those that are hidden.
     def watchable?(path : String) : Bool
       !path.split("/", remove_empty: true).any? { |part|
         part.starts_with?('_') ||
@@ -75,11 +75,11 @@ module Inquirer
     # Handles a change in a watchable.
     #
     # - If a Ven file ('[^_]*.ven') was created, modified,
-    # deleted or moved (inotify MODIFY, CREATE, DELETE, MOVE),
-    # the appropriate command about that change is sent to
-    # the server.
-    # - If a watchable directory was created, a watcher is
-    # set on this directory.
+    # deleted or moved (inotify MODIFY, CREATE, DELETE and
+    # MOVE, correspondingly), the appropriate command about
+    # that change is sent to the server.
+    # - If a watchable directory was created, a watcher is set
+    # on this directory.
     # - If a watchable directory was removed, its watcher is
     # (automatically) suspended.
     #
@@ -114,9 +114,13 @@ module Inquirer
       end
     end
 
-    # Starts this daemon. Detaches (daemonizes) if `Config.detached`.
-    # Returns nothing. Does not check whether another daemon is
-    # running on the same port.
+    # Starts this daemon. Detaches (daemonizes) if the config
+    # says to.
+    #
+    # Does not check whether another daemon is running on
+    # the same port.
+    #
+    # Returns nothing.
     def start
       server = Server.new(@config, self)
 
@@ -135,14 +139,13 @@ module Inquirer
       server.serve
     end
 
-    # Gracefully (in theory) stops this daemon.
+    # Gracefully (in theory) stops this daemon after waiting
+    # for some *time*.
     #
-    # Should unregister all inotify watchers and stop the
-    # server.
+    # Unregisters all inotify watchers and stops the server
+    # (as a consequence of exiting).
     #
-    # Curiously, this suicides the server, so it won't respond
-    # with 'goodbye!'. It can wait for some *time* before dying,
-    # though.
+    # Should be called by the server.
     def stop(wait time : Time::Span = nil)
       Console.log("I will die.")
       sleep time unless time.nil?
@@ -154,7 +157,9 @@ module Inquirer
       exit 0
     end
 
-    # A shorthand for `initialize` followed by `start`.
+    # Initializes a daemon and starts it.
+    #
+    # See `initialize`, `start`.
     def self.start(config : Config)
       new(config).start
     end

@@ -1,6 +1,5 @@
 module Inquirer
-  # Overall Inquirer configuration that gets passed to all
-  # interested parts of Inquirer.
+  # Overall Inquirer configuration.
   class Config
     property port = 3000
     property ignore = %w[node_modules]

@@ -1,17 +1,16 @@
 module Inquirer::Protocol
-  # Represents a server command.
+  # Represents Inquirer server command.
   #
-  # Commands are used to make the Inquirer server fetch or
-  # do something.
+  # Commands are used to make the server fetch or do something.
   enum Command
-    # Take no argument.
+    # Those take no argument.
 
     # Stops the daemon and the server.
     Die = 0
     # Checks for connection/existence.
     Ping
 
-    # Take one argument.
+    # Those take an argument.
 
     # Relook at a file. Accepts filepath argument.
     Relook = 2048
@@ -22,26 +21,28 @@ module Inquirer::Protocol
     # Lists N watchables from the start of the list.
     Watchables
 
-    # Returns whether this command takes one argument.
+    # Returns whether this command takes an argument.
     def takes_argument?
       self >= Relook
     end
   end
 
   # Represents Inquirer server response status.
+  #
+  # The server uses it to tell whether an operation succeeded.
   enum Status
     Ok
     Err
   end
 
-  # A request consisting of a `Command` coupled with an optional
+  # A request consisting of a `Command` plus an optional
   # string argument of some kind.
   struct Request
     include JSON::Serializable
 
-    # Returns the command of this instruction request.
+    # Returns the command of this request.
     getter command : Command
-    # Returns the argument of this instruction request.
+    # Returns the argument of this request.
     getter argument : String
 
     def initialize(@command, @argument = "")
@@ -55,12 +56,12 @@ module Inquirer::Protocol
     end
   end
 
-  # Represents a response that carries the operation status
-  # with an optional result alongside.
+  # Represents a response that carries a `Status` plus an
+  # optional result of some kind.
   struct Response
     include JSON::Serializable
 
-    # Returns the operation status.
+    # Returns the status.
     getter status : Status
     # Returns the result.
     getter result : String?

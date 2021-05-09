@@ -6,8 +6,10 @@ module Inquirer
   class Server
     include Protocol
 
-    # Makes a Server from the given *config* and *daemon*,
-    # which the new server will look after.
+    # Makes a Server from the given *config*.
+    #
+    # *daemon* is the daemon that the new server will
+    # look after.
     def initialize(@config : Config, @daemon : Daemon)
       @repo = {} of String => File
     end
@@ -24,7 +26,7 @@ module Inquirer
 
     # Finds a repo key that matches the given *query*.
     #
-    # Raises if not found, or if multiple files match.
+    # Raises if not found, or if found multiple.
     private def repo_find_file(query : String)
       files = repo_find_all(query)
 
@@ -37,8 +39,9 @@ module Inquirer
       end
     end
 
-    # Executes the given *request*. Returns the appropriate
-    # `Response`.
+    # Executes the given *request*.
+    #
+    # Returns the appropriate `Response`.
     def execute(request : Request)
       Console.log("Execute: #{request}")
 
@@ -74,8 +77,7 @@ module Inquirer
       return Response.err(e.message || "invalid")
     end
 
-    # Parses the given JSON *query* and formulates a proper
-    # `Protocol::Response`.
+    # Parses a JSON *query* and formulates a `Protocol::Response`.
     def respond_to(query : String?) : Response
       begin
         unless query.nil? || query.empty?
@@ -88,7 +90,7 @@ module Inquirer
       Response.err
     end
 
-    # Starts serving the Inquirer API.
+    # Starts serving the API.
     def serve
       post "/" do |env|
         env.response.content_type = "application/json"

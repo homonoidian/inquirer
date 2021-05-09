@@ -57,8 +57,8 @@ module Inquirer::Console
     exit(status)
   end
 
-  # Prints the given *message* so that it's possible to change
-  # it in-place.
+  # Prints the given *message* so that the next call, it
+  # changes in-place.
   #
   # Returns the carriage to the start of the line, clears
   # the line, and prints *message* with no trailing newline.

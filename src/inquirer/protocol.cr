@@ -4,53 +4,82 @@ module Inquirer::Protocol
   # Commands are used to make the Inquirer server fetch or
   # do something.
   enum Command
-    # Lists the watchables.
-    Ls
-    # Stops the daemon and the server. Should return status OK.
-    Die
-    # Checks for connection/existence. Should return status OK.
+    # Take no argument.
+
+    # Stops the daemon and the server.
+    Die = 0
+    # Checks for connection/existence.
     Ping
+
+    # Take one argument.
+
+    # Relook at a file. Accepts filepath argument.
+    Relook = 2048
+    # Regsiters a file.
+    Register
+    # Unregisters a file.
+    Unregister
+    # Lists N watchables from the start of the list.
+    Watchables
+
+    # Returns whether this command takes one argument.
+    def takes_argument?
+      self >= Relook
+    end
   end
 
-  # Represents an Inquirer server response status.
+  # Represents Inquirer server response status.
   enum Status
     Ok
     Err
   end
 
-  # Represents a request that a client sends to the server.
+  # A request consisting of a `Command` coupled with an optional
+  # string argument of some kind.
   struct Request
     include JSON::Serializable
 
+    # Returns the command of this instruction request.
     getter command : Command
+    # Returns the argument of this instruction request.
+    getter argument : String
 
-    def initialize(@command)
+    def initialize(@command, @argument = "")
+      if @argument.empty? && @command.takes_argument?
+        raise InquirerError.new("this command takes one argument")
+      end
     end
 
     def to_s(io)
-      io << "request to " << @command
+      io << command << " " << argument
     end
   end
 
-  # Represents a response that the server sends to a client.
+  # Represents a response that carries the operation status
+  # with an optional result alongside.
   struct Response
     include JSON::Serializable
 
+    # Returns the operation status.
     getter status : Status
+    # Returns the result.
+    getter result : String?
 
-    def initialize(@status)
+    def initialize(@status, @result = nil)
     end
 
     def to_s(io)
-      io << @status << " response"
+      io << @status << ": " << @result
     end
 
-    def self.ok
-      new(Status::Ok)
+    # Makes an ok response.
+    def self.ok(*args)
+      Response.new(Status::Ok, *args)
     end
 
-    def self.err
-      new(Status::Err)
+    # Makes an error response.
+    def self.err(*args)
+      Response.new(Status::Err, *args)
     end
   end
 end

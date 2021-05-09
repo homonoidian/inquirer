@@ -53,7 +53,7 @@ module Inquirer
 
     # Returns whether the server is running.
     def running? : Bool
-      !!send Request.new(Command::Ping)
+      !!command(Command::Ping)
     rescue Socket::ConnectError
       false
     end

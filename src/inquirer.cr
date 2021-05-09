@@ -12,17 +12,21 @@ module Inquirer
   class CLI
     @config = Inquirer::Config.new
 
-    # Executes shell input *input* using the given *client*.
+    # Executes shell input *input* through the given *client*.
     #
     # Raises `InquirerError` on invalid command and on
     # connection error.
     def shell_for(client : Client, input : String)
-      command = Protocol::Command.from_json(input.dump)
-      client.command(command)
+      raise InquirerError.new("invalid syntax")unless input =~ /^(\w+)\s*([^\s]*)$/
+
+      command = Protocol::Command.from_json($1.dump)
+      request = Protocol::Request.new(command, $2)
+
+      client.send(request)
     rescue JSON::ParseException
       raise InquirerError.new("invalid command")
     rescue Socket::ConnectError
-      raise InquirerError.new("no connection with the server")
+      raise InquirerError.new("connection lost")
     end
 
     # Returns the Commander command line interface for Inquirer.

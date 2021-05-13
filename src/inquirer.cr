@@ -19,10 +19,19 @@ module Inquirer
     def shell_for(client : Client, input : String)
       raise InquirerError.new("invalid syntax") unless input =~ /^(\w+)\s*([^\s]*)$/
 
-      command = Protocol::Command.from_json($1.dump)
-      request = Protocol::Request.new(command, $2)
+      command  = Protocol::Command.from_json($1.dump)
+      request  = Protocol::Request.new(command, $2)
+      response = client.send(request)
 
-      client.send(request)
+      case result = response.result
+      in Nil then puts response.status
+      in Array then puts result.join("\n")
+      in String then puts result
+      in Hash(String, Array(String))
+        result.each do |head, children|
+          puts head.colorize.bold, children.map { |child| "  * #{child}" }.join("\n")
+        end
+      end
     rescue JSON::ParseException
       raise InquirerError.new("invalid command")
     rescue Socket::ConnectError

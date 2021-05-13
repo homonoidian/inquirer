@@ -123,13 +123,18 @@ module Inquirer
 
     # Starts serving the API.
     def serve
-      post "/" do |env|
+      logging false
+
+      before_post "/" do |env|
         env.response.content_type = "application/json"
+      end
 
-        payload  = env.request.body.try(&.gets_to_end)
-        response = respond_to(payload)
+      post "/" do |env|
+        respond_to(env.request.body.try &.gets_to_end).to_json
+      end
 
-        response.to_json
+      error 404 do
+        render("src/views/404.ecr")
       end
 
       Kemal.run(@config.port, args: nil) do |config|

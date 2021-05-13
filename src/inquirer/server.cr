@@ -95,6 +95,8 @@ module Inquirer
         return Response.ok(@repo.keys.map(&.join ".").zip(@repo.values).to_h)
       in .unperson?
         purge(arg)
+      in .commands?
+        return Response.ok({{Protocol::Command.constants.map(&.stringify.downcase)}})
       in .files_for?
         if them = @repo[arg.split(".")]?
           return Response.ok(them)

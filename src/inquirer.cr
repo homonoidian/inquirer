@@ -19,9 +19,11 @@ module Inquirer
     def shell_for(client : Client, input : String)
       raise InquirerError.new("invalid syntax") unless input =~ /^(\w+)\s*([^\s]*)$/
 
-      command  = Protocol::Command.from_json($1.dump)
-      request  = Protocol::Request.new(command, $2)
+      command = Protocol::Command.from_json($1.dump)
+      request = Protocol::Request.new(command, $2)
+
       response = client.send(request)
+      raise InquirerError.new(response.result.as? String) if response.status.err?
 
       case result = response.result
       in Nil then puts response.status
@@ -130,7 +132,9 @@ module Inquirer
             fancy  = Fancyline.new
             client = Client.from(@config).running!(exit: true)
 
-            while input = fancy.readline("@ > ")
+            puts "Hint: type 'commands' for a list of commands."
+
+            while input = fancy.readline(" -> ")
               begin
                 puts shell_for(client, input)
               rescue e : InquirerError

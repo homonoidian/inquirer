@@ -10,6 +10,8 @@ module Inquirer::Protocol
     Ping
     # Returns the repository.
     Repo
+    # Returns all commands of the server.
+    Commands
 
     # Lists N directories out of those that are currently
     # watched.

@@ -97,7 +97,12 @@ module Inquirer
           cmd.run do |options, arguments|
             @config.ignore += options.string["ignore"].split(",")
             @config.detached = options.bool["detached"]
-            Daemon.start(@config)
+
+            if Client.from(@config).running?
+              Console.exit(1, "Another Inquirer server is running on port #{@config.port}.")
+            else
+              Daemon.start(@config)
+            end
           end
         end
 

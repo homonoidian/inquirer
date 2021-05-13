@@ -17,7 +17,7 @@ module Inquirer
     # Raises `InquirerError` on invalid command and on
     # connection error.
     def shell_for(client : Client, input : String)
-      raise InquirerError.new("invalid syntax")unless input =~ /^(\w+)\s*([^\s]*)$/
+      raise InquirerError.new("invalid syntax") unless input =~ /^(\w+)\s*([^\s]*)$/
 
       command = Protocol::Command.from_json($1.dump)
       request = Protocol::Request.new(command, $2)

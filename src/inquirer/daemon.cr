@@ -72,6 +72,26 @@ module Inquirer
       }
     end
 
+    # Registers Ven files that are already in watchables.
+    #
+    # Any file that ends with '.ven' and is not prefixed with
+    # an underscore is considered a Ven file.
+    #
+    # Requires watchables to be looked up beforehand.
+    #
+    # May take a long time as well.
+    def register_existing_files(server : Inquirer::Server)
+      @watchables.each do |watchable|
+        Dir["#{watchable}/[^_]*.ven"].each do |file|
+          Console.overwrite("Add: #{file}")
+          server.execute Request.new(Command::Add, file)
+        end
+        Console.update("In: #{watchable}")
+      end
+
+      puts # Output the final newline.
+    end
+
     # Handles a change in a watchable.
     #
     # - If a Ven file ('[^_]*.ven') was created, modified,
@@ -87,7 +107,7 @@ module Inquirer
     def handle(server : Inquirer::Server, event : Inotify::Event)
       return unless (filename = event.name) && (responsible = event.path)
 
-      event_path = "#{responsible}/#{filename}"
+      event_path = Path[responsible, filename].to_s
 
       if event.directory? && watchable?(event_path)
         # Directory events are handled by the daemon.
@@ -102,12 +122,10 @@ module Inquirer
         # Ven file events are handled by the server.
         Console.log("Ven file change detected: #{event_path}")
         case event.type
-        when .create?
-          server.execute Request.new(Command::Register, event_path)
         when .modify?, .moved_to?
-          server.execute Request.new(Command::Relook, event_path)
+          server.execute Request.new(Command::Add, event_path)
         when .delete?, .moved_from?
-          server.execute Request.new(Command::Unregister, event_path)
+          server.execute Request.new(Command::Unperson, event_path)
         else
           Console.error("Unhandled event: #{event}")
         end
@@ -124,6 +142,7 @@ module Inquirer
     def start
       server = Server.new(@config, self)
 
+      register_existing_files(server)
       # Register the watchers for each watchable.
       @watchables.each { |watchable| @watcher.watch(watchable) }
       # Set the inotify handler.

@@ -1,5 +1,6 @@
 require "json"
 require "kemal"
+require "ven/lib"
 require "./protocol"
 
 module Inquirer
@@ -8,38 +9,58 @@ module Inquirer
 
     # Makes a Server from the given *config*.
     #
-    # *daemon* is the daemon that the new server will
-    # look after.
+    # *daemon* is the daemon that the new server will control.
     def initialize(@config : Config, @daemon : Daemon)
-      @repo = {} of String => File
+      @repo = {} of Ven::Distinct => Array(String)
     end
 
-    # Finds all repo keys that include *query*, and returns
-    # an array of repo values that correspond to them.
-    private def repo_find_all(query : String)
-      result = [] of {String, File}
-      @repo.each do |k, f|
-        result << {k, f} if k.includes?(query)
-      end
-      result
-    end
-
-    # Finds a repo key that matches the given *query*.
+    # Subscribes *filepath* to the given *distinct*.
     #
-    # Raises if not found, or if found multiple.
-    private def repo_find_file(query : String)
-      files = repo_find_all(query)
+    # Makes the appropriate entry in the repository if *distinct*
+    # is not already there.
+    #
+    # Returns nothing.
+    private def subscribe(distinct : Ven::Distinct, filepath : String)
+      index = distinct.size
 
-      if files.empty?
-        raise InquirerError.new("#{query}: not found")
-      elsif files.size > 1
-        raise InquirerError.new("please stricten your relook query")
-      else
-        files.first
+      # Given *distinct* [foo, bar, baz]
+      #
+      # ITER  |  FRAME            |  REPO
+      # #1    |  [foo]            |  foo = [*others, filepath]
+      # #2    |  [foo, bar]       |  foo.bar = [*others, filepath]
+      # #3    |  [foo, bar, baz]  |  foo.bar.baz = [*others, filepath]
+      while index > 0
+        frame = distinct[..-index]
+
+        if (filepaths = @repo[frame]?) && !filepath.in?(filepaths)
+          filepaths << filepath
+        else
+          @repo[frame] = [filepath]
+        end
+
+        index -= 1
       end
     end
 
-    # Executes the given *request*.
+    # Unsubscribes *filepath* from all distincts in the
+    # repository.
+    #
+    # If *filepath* was the only subscriber of a distinct,
+    # that distinct is removed as well.
+    #
+    # Returns nothing.
+    private def purge(filepath : String)
+      @repo.each do |distinct, subscribers|
+        if subscribers.delete(filepath)
+          Console.log("'#{filepath}' removed out of '#{distinct.join('.')}'")
+        end
+        if subscribers.empty? && @repo.delete(distinct)
+          Console.log("Wholly purged distinct '#{distinct}'")
+        end
+      end
+    end
+
+    # Executes a command under *request*.
     #
     # Returns the appropriate `Response`.
     def execute(request : Request)
@@ -48,54 +69,66 @@ module Inquirer
       arg = request.argument
 
       case request.command
+      in .ps?
+        return Response.ok @daemon.watchables[...arg.to_i]
+      in .add?
+        return Response.err("invalid filepath") unless
+          File.readable?(arg) &&
+          File.exists?(arg) &&
+          File.file?(arg)
+
+        contents = File.read(arg)
+        program  = Ven::Program.new(contents, arg)
+
+        if distinct = program.distinct
+          subscribe(distinct, arg)
+        else
+          # If a program got here without a distinct, it's
+          # useless to Inquirer.
+          purge(arg)
+        end
       in .die?
-        # Close repo files and wait to be able to send the
-        # OK response.
-        @repo.map { |k, f| f.close }
         spawn @daemon.stop(wait: 1.second)
       in .ping?
-        # pass
-      in .relook?
-        filepath, file = repo_find_file(arg)
-        # Scans for distinct and adds that to the repo.
-        Console.error("TODO: relook #{filepath}")
-      in .register?
-        return Response.err unless File.exists?(arg) && File.file?(arg)
-        # Opens a file for RELOOKing.
-        @repo[arg] = File.open(arg)
-      in .unregister?
-        filepath, file = repo_find_file(arg)
-        # Closes the file and removes the repo entry.
-        file.close
-        @repo.delete(filepath)
-      in .watchables?
-        return Response.ok @daemon.watchables[...arg.to_i].join("\n")
+        return Response.ok("pong")
+      in .repo?
+        return Response.ok(@repo.keys.map(&.join ".").zip(@repo.values).to_h)
+      in .unperson?
+        purge(arg)
+      in .files_for?
+        if them = @repo[arg.split(".")]?
+          return Response.ok(them)
+        else
+          return Response.err("no such distinct")
+        end
       end
 
       Response.ok
-    rescue e : InquirerError
-      return Response.err(e.message || "invalid")
+    rescue error : InquirerError
+      Response.err(error.message || "unknown error")
     end
 
-    # Parses a JSON *query* and formulates a `Protocol::Response`.
-    def respond_to(query : String?) : Response
+    # Parses the given *payload* and formulates a response.
+    def respond_to(payload : String?)
       begin
-        unless query.nil? || query.empty?
-          return execute Request.from_json(query)
+        unless payload.nil? || payload.empty?
+          return execute Request.from_json(payload)
         end
       rescue JSON::ParseException
         # pass
       end
 
-      Response.err
+      Response.err("bad request")
     end
 
     # Starts serving the API.
     def serve
       post "/" do |env|
         env.response.content_type = "application/json"
-        query = env.request.body.try(&.gets_to_end)
-        response = respond_to(query)
+
+        payload  = env.request.body.try(&.gets_to_end)
+        response = respond_to(payload)
+
         response.to_json
       end
 

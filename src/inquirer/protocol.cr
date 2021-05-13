@@ -3,27 +3,30 @@ module Inquirer::Protocol
   #
   # Commands are used to make the server fetch or do something.
   enum Command
-    # Those take no argument.
-
     # Stops the daemon and the server.
     Die = 0
-    # Checks for connection/existence.
+    # Checks whether the server is running and whetber it is
+    # the correct server.
     Ping
+    # Returns the repository.
+    Repo
 
-    # Those take an argument.
-
-    # Relook at a file. Accepts filepath argument.
-    Relook = 2048
-    # Regsiters a file.
-    Register
-    # Unregisters a file.
-    Unregister
-    # Lists N watchables from the start of the list.
-    Watchables
+    # Lists N directories out of those that are currently
+    # watched.
+    Ps = 2048
+    # Adds a program to the repository given an abolute path
+    # to the source file of the program.
+    Add
+    # Removes all mentions of the given source file from
+    # the repository.
+    Unperson
+    # Returns which files to run in order to load the
+    # given distinct.
+    FilesFor
 
     # Returns whether this command takes an argument.
     def takes_argument?
-      self >= Relook
+      self >= Ps
     end
   end
 
@@ -61,10 +64,12 @@ module Inquirer::Protocol
   struct Response
     include JSON::Serializable
 
+    private alias RType = Hash(String, Array(String)) | Array(String) | String
+
     # Returns the status.
     getter status : Status
     # Returns the result.
-    getter result : String?
+    getter result : RType?
 
     def initialize(@status, @result = nil)
     end

@@ -12,6 +12,9 @@ targets:
     main: src/inquirer.cr
 
 dependencies:
+  ven:
+    github: homonoidian/ven
+    branch: bytecode-management-reform
   kemal:
     github: kemalcr/kemal
   inotify:

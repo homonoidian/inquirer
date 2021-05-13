@@ -74,6 +74,12 @@ module Inquirer::Console
     print "\r#{message}#{" " * (COLUMNS - message.size)}"
   end
 
+  # Stacks the given *message* on top of an `update`.
+  def overwrite(message : String)
+    update(message)
+    puts
+  end
+
   # Returns *given*, logging message *before* beforehand and
   # message *after* afterwards.
   macro comment(before, after, given)

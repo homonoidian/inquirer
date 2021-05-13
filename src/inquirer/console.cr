@@ -6,7 +6,7 @@ module Inquirer::Console
   extend self
 
   # The amount of columns in the terminal.
-  COLUMNS = ENV["COLUMNS"]?.try(&.to_i) || 80
+  COLUMNS = `tput cols`.to_i? || 80
 
   # Log plaque foreground color.
   LOG_FORE = Colorize::ColorRGB.new(144, 202, 249)
@@ -48,10 +48,7 @@ module Inquirer::Console
     exit 0
   end
 
-  # Exits with the given *status*.
-  #
-  # If *status* is nonzero, an `error` with the given *message*
-  # will be printed before exiting.
+  # Calls `error(message)` and exits with the given *status*.
   def exit(status : Int32, message : String)
     error(message) unless status == 0
     exit(status)

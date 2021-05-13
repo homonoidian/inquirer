@@ -56,10 +56,13 @@ module Inquirer
       self
     end
 
-    # Returns whether the server is running. Does not check
-    # if the server sent a valid response, though.
+    # Returns whether the server is running.
+    #
+    # Sends a `Command::Ping` command and checks if the response
+    # result is `"pong"`. If it is, the Inquirer server this
+    # client is connected to is indeed running.
     def running? : Bool
-      !!command(Command::Ping)
+      command(Command::Ping).result == "pong"
     rescue Socket::ConnectError
       false
     end

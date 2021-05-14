@@ -1,11 +1,8 @@
 name: inquirer
 version: 0.1.0
 
-# authors:
-#   - name <email@example.com>
-
-# description: |
-#   Short description of inquirerd
+authors:
+  - Alexey Yurchenko <homonoidian@yandex.ru>
 
 targets:
   inquirer:
@@ -14,7 +11,8 @@ targets:
 dependencies:
   ven:
     github: homonoidian/ven
-    branch: bytecode-management-reform
+    # TODO: WORKAROUND: do not depend on Ven!
+    commit: c3affa5676e379988d9b9a9733c09b3ab0c831bf
   kemal:
     github: kemalcr/kemal
   inotify:
@@ -23,9 +21,3 @@ dependencies:
     github: mrrooijen/commander
   fancyline:
     github: Papierkorb/fancyline
-
-# development_dependencies:
-#   webmock:
-#     github: manastech/webmock.cr
-
-# license: MIT

@@ -41,8 +41,8 @@ module Inquirer
       while index > 0
         frame = distinct[..-index]
 
-        if (filepaths = @repo[frame]?) && !filepath.in?(filepaths)
-          filepaths << filepath
+        if filepaths = @repo[frame]?
+          filepaths << filepath unless filepath.in?(filepaths)
         else
           @repo[frame] = [filepath]
         end

@@ -1,17 +1,26 @@
 require "json"
 require "kemal"
-require "ven/lib"
 require "./protocol"
 
 module Inquirer
   class Server
     include Protocol
 
+    private alias Distinct = Array(String)
+
+    # A regex that matches the characters Ven reader ignores,
+    # assuming they are at the start of the string.
+    RX_VEN_IGNORES  = /^(?:[ \n\r\t]+|#(?:[ \t][^\n]*|\n+))/
+
+    # A regex that matches Ven distinct statement, assuming
+    # it is at the start of the string.
+    RX_VEN_DISTINCT = /^distinct\s+(\w[\.\w]*(?<!\.))(;|$)/
+
     # Makes a Server from the given *config*.
     #
     # *daemon* is the daemon that the new server will control.
     def initialize(@config : Config, @daemon : Daemon)
-      @repo = {} of Ven::Distinct => Array(String)
+      @repo = {} of Distinct => Array(String)
     end
 
     # Subscribes *filepath* to the given *distinct*.
@@ -20,7 +29,7 @@ module Inquirer
     # is not already there.
     #
     # Returns nothing.
-    private def subscribe(distinct : Ven::Distinct, filepath : String)
+    private def subscribe(distinct : Distinct, filepath : String)
       index = distinct.size
 
       # Given *distinct* [foo, bar, baz]
@@ -60,6 +69,23 @@ module Inquirer
       end
     end
 
+    # A miniature reader that will extract a valid distinct
+    # from the given *source*.
+    #
+    # Depends on `RX_VEN_DISTINCT` and `RX_VEN_IGNORE` being
+    # up-to-date with current Ven syntax.
+    #
+    # Returns nil if *source* has no distinct, or if the distinct
+    # it has was found invalid.
+    private def distinct?(source : String) : Distinct?
+      case source
+      when RX_VEN_DISTINCT
+        $1.split('.')
+      when RX_VEN_IGNORES
+        distinct?(source[$0.size..])
+      end
+    end
+
     # Executes a command under *request*.
     #
     # Returns the appropriate `Response`.
@@ -78,9 +104,8 @@ module Inquirer
           File.file?(arg)
 
         contents = File.read(arg)
-        program  = Ven::Program.new(contents, arg)
 
-        if distinct = program.distinct
+        if distinct = distinct?(contents)
           subscribe(distinct, arg)
         else
           # If a program got here without a distinct, it's

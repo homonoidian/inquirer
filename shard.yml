@@ -9,10 +9,6 @@ targets:
     main: src/inquirer.cr
 
 dependencies:
-  ven:
-    github: homonoidian/ven
-    # TODO: WORKAROUND: do not depend on Ven!
-    commit: c3affa5676e379988d9b9a9733c09b3ab0c831bf
   kemal:
     github: kemalcr/kemal
   inotify:

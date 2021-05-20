@@ -8,16 +8,9 @@ module Inquirer::Console
   # The amount of columns in the terminal.
   COLUMNS = `tput cols`.to_i? || 80
 
-  # Log plaque foreground color.
-  LOG_FORE = Colorize::ColorRGB.new(144, 202, 249)
-  # Done plaque foreground color.
-  DONE_FORE = Colorize::ColorRGB.new(165, 214, 167)
-  # Error plaque foreground color.
-  ERROR_FORE = Colorize::ColorRGB.new(239, 154, 154)
-
   # Makes a plaque from the given plaque text *text* and of
   # *fore* foreground color.
-  private def plaque(text : String, fore : Colorize::ColorRGB)
+  private def plaque(text : String, fore)
     "[#{text}]".colorize.bold.fore(fore)
   end
 
@@ -25,21 +18,21 @@ module Inquirer::Console
   #
   # Returns nothing.
   def log(message : String)
-    puts "#{plaque("LOG", LOG_FORE)} #{message}"
+    puts "#{plaque("LOG", :blue)} #{message}"
   end
 
   # Displays a done plaque followed by *message*.
   #
   # Returns nothing.
   def done(message : String)
-    puts "#{plaque("DONE", DONE_FORE)} #{message}"
+    puts "#{plaque("DONE", :green)} #{message}"
   end
 
   # Displays an error plaque followed by *message*.
   #
   # Returns nothing.
   def error(message : String)
-    puts "#{plaque("ERROR", ERROR_FORE)} #{message}"
+    puts "#{plaque("ERROR", :red)} #{message}"
   end
 
   # Prints the given *message* and exits with status 0.

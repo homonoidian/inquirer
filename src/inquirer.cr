@@ -12,6 +12,10 @@ module Inquirer
   class CLI
     @config = Inquirer::Config.new
 
+    def initialize
+      Colorize.on_tty_only!
+    end
+
     # Executes shell input *input* through the given *client*.
     #
     # Raises `InquirerError` on invalid command and on
@@ -112,6 +116,9 @@ module Inquirer
             if Client.from(@config).running?
               Console.exit(1, "Another Inquirer server is running on port #{@config.port}.")
             else
+              puts "[Inquirer #{VERSION}]".colorize.bold
+              puts
+
               Daemon.start(@config)
             end
           end
@@ -141,9 +148,26 @@ module Inquirer
             fancy  = Fancyline.new
             client = Client.from(@config).running!(exit: true)
 
-            puts "Hint: type 'commands' for a list of commands."
+            puts "[Inquirer #{VERSION}]".colorize.bold,
+                 "#{"Hint".colorize.green}: Type 'commands' for a list of commands.",
+                 "#{"Hint".colorize.green}: Hit CTRL+D to exit."
+            puts
 
-            while input = fancy.readline(" -> ")
+            loop do
+              begin
+                input = fancy.readline("(0.0.0.0:#{@config.port}) ").try(&.strip)
+              rescue Fancyline::Interrupt
+                # If the user presses CTRL+C, discard the input
+                # and go to the next line.
+                next puts
+              end
+
+              if input.nil? # CTRL+D pressed.
+                Console.quit("Bye bye.")
+              elsif input.empty?
+                next
+              end
+
               begin
                 puts shell_for(client, input)
               rescue e : InquirerError

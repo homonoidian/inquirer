@@ -3,6 +3,24 @@ require "kemal"
 require "./protocol"
 
 module Inquirer
+  # A middleware that responds by status code 418 to all
+  # connections except `POST /`.
+  #
+  # Sets response content type to JSON for that `POST /`.
+  class ConnectionHandler < Kemal::Handler
+    exclude ["/"], "POST"
+
+    def call(env)
+      if exclude_match?(env)
+        env.response.headers["Content-Type"] = "application/json"
+        call_next(env)
+      else
+        env.response.status_code = 418
+        env.response.close
+      end
+    end
+  end
+
   class Server
     include Protocol
 
@@ -88,9 +106,11 @@ module Inquirer
 
     # Executes a command under *request*.
     #
+    # Will log the command if *log* unless *log* is false.
+    #
     # Returns the appropriate `Response`.
-    def execute(request : Request)
-      Console.log("Execute: #{request}")
+    def execute(request : Request, log = true)
+      Console.log("Execute: #{request}") if log
 
       arg = request.argument
 
@@ -113,7 +133,21 @@ module Inquirer
           purge(arg)
         end
       in .die?
-        spawn @daemon.stop(wait: 1.second)
+        if log
+          Console.comment(
+            before: "Stopping the daemon.",
+            after: "Will stop the server.",
+            given: @daemon.stop,
+          )
+        end
+
+        spawn do
+          sleep 1.second
+          # We gave the server some time to send the OK response;
+          # now we can quit. Maybe there's a better approach
+          # though?
+          Kemal.stop
+        end
       in .ping?
         return Response.ok("pong")
       in .repo?
@@ -152,16 +186,13 @@ module Inquirer
     def serve
       logging false
 
-      before_post "/" do |env|
-        env.response.content_type = "application/json"
-      end
+      # We don't need static files.
+      serve_static false
+
+      add_handler ConnectionHandler.new
 
       post "/" do |env|
         respond_to(env.request.body.try &.gets_to_end).to_json
-      end
-
-      error 404 do
-        render("src/views/404.ecr")
       end
 
       Kemal.run(@config.port, args: nil) do |config|

@@ -84,7 +84,7 @@ module Inquirer
       @watchables.each do |watchable|
         Dir["#{watchable}/[^_]*.ven"].each do |file|
           Console.overwrite("Add: #{file}")
-          server.execute Request.new(Command::Add, file)
+          server.execute(Request.new(Command::Add, file), log: false)
         end
         Console.update("In: #{watchable}")
       end
@@ -158,22 +158,9 @@ module Inquirer
       server.serve
     end
 
-    # Gracefully (in theory) stops this daemon after waiting
-    # for some *time*.
-    #
-    # Unregisters all inotify watchers and stops the server
-    # (as a consequence of exiting).
-    #
-    # Should be called by the server.
-    def stop(wait time : Time::Span = nil)
-      Console.log("I will die.")
-      sleep time unless time.nil?
-
-      Console.log("Closing watchers.")
+    # Gracefully stops this daemon.
+    def stop
       @watcher.close
-
-      Console.done("Exiting.")
-      exit 0
     end
 
     # Initializes a daemon and starts it.

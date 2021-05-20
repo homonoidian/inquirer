@@ -3,7 +3,7 @@ require "fancyline"
 require "./inquirer/*"
 
 module Inquirer
-  VERSION = "0.1.0"
+  VERSION = "0.1.1-rev01"
 
   # Inquirer CLI constructs an `Inquirer::Config` object and
   # passes it to the appropriate Inquirer facilities (those

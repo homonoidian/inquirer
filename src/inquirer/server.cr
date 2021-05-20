@@ -14,7 +14,7 @@ module Inquirer
 
     # A regex that matches Ven distinct statement, assuming
     # it is at the start of the string.
-    RX_VEN_DISTINCT = /^distinct\s+(\w[\.\w]*(?<!\.))(;|$)/
+    RX_VEN_DISTINCT = /^distinct\s+(\w[\.\w]*(?<!\.))(;|;?$)/
 
     # Makes a Server from the given *config*.
     #

@@ -1,7 +1,7 @@
 module Inquirer
   # Overall Inquirer configuration.
   class Config
-    property port = 3000
+    property port = 12879
     property ignore = %w[node_modules]
     property origin = ENV["ORIGIN"]? || ENV["HOME"]? || "."
     property detached = false

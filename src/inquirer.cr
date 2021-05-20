@@ -51,7 +51,7 @@ module Inquirer
           flag.name        = "port"
           flag.short       = "-p"
           flag.long        = "--port"
-          flag.default     = 3000
+          flag.default     = 12879
           flag.description = "Set referent Inquirer server port."
         end
 

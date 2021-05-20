@@ -96,7 +96,16 @@ module Inquirer
             flag.description = "Directories that are not watched (comma-separated)."
           end
 
+          # --here
+          cmd.flags.add do |flag|
+            flag.name        = "here"
+            flag.long        = "--here"
+            flag.default     = false
+            flag.description = "Set watch origin to the working directory."
+          end
+
           cmd.run do |options, arguments|
+            @config.origin = Dir.current if options.bool["here"]
             @config.ignore += options.string["ignore"].split(",")
             @config.detached = options.bool["detached"]
 

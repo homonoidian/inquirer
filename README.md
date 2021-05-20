@@ -1,19 +1,15 @@
-<div align="center">
-  <img src="https://i.imgur.com/pOfRSr2.png" alt="Logo" width="150">
-</div>
-
 ## Inquirer
 
 Inquirer is an integral part of the [Ven programming language](https://github.com/homonoidian/ven).
-It provides an abstract interface between the hard drive and Ven programs *on it*.
-As it is pretty complex on its own, I decided to make it a separate project.
 
-Inquirer consists of:
-
-- The *inquirer daemon*, which watches for changes in Ven files and updates the stuff
-  that has to be updated after those changes.
-- The *inquirer server*, which provides REST-like API interface to the daemon, making
-  it easy for IDEs and for Ven itself to know where Ven ecosystem is on the disk.
+- At its core, Inquirer is a daemon that recursively watches
+  for changes in the *origin directory* (your home directory
+  by default), and specifically changes in `.ven` files and
+  in the directory structure (in order to establish/remove
+  watchers).
+- The other part of Inquirer is the Inquirer server. It makes
+  it easy for the outer world to interact with the daemon. It
+  has direct access to, as well as full control of the daemon.
 
 ### Building
 

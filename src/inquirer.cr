@@ -163,7 +163,7 @@ module Inquirer
               end
 
               if input.nil? # CTRL+D pressed.
-                Console.quit("Bye bye.")
+                Console.quit("Bye bye!")
               elsif input.empty?
                 next
               end

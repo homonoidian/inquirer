@@ -149,12 +149,11 @@ module Inquirer
       @watcher.on_event { |event| handle(server, event) }
 
       Console.done("Listening for changes in '#{@origin}'.")
-      Console.done("API running on port #{@config.port}.")
 
       Daemonize.daemonize if @config.detached
 
-      # Start the API server. From now on, Kemal is in control.
-      # Kemal will occupy the fiber and keep inotify running.
+      # Start the API server. From now on, the server is
+      # in control.
       server.serve
     end
 

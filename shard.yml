@@ -9,8 +9,6 @@ targets:
     main: src/inquirer.cr
 
 dependencies:
-  kemal:
-    github: kemalcr/kemal
   inotify:
     github: petoem/inotify.cr
   commander:

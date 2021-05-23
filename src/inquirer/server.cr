@@ -1,26 +1,8 @@
 require "json"
-require "kemal"
+require "http"
 require "./protocol"
 
 module Inquirer
-  # A middleware that responds by status code 418 to all
-  # connections except `POST /`.
-  #
-  # Sets response content type to JSON for that `POST /`.
-  class ConnectionHandler < Kemal::Handler
-    exclude ["/"], "POST"
-
-    def call(env)
-      if exclude_match?(env)
-        env.response.headers["Content-Type"] = "application/json"
-        call_next(env)
-      else
-        env.response.status_code = 418
-        env.response.close
-      end
-    end
-  end
-
   class Server
     include Protocol
 
@@ -128,25 +110,21 @@ module Inquirer
         if distinct = distinct?(contents)
           subscribe(distinct, arg)
         else
-          # If a program got here without a distinct, it's
-          # useless to Inquirer.
           purge(arg)
         end
       in .die?
         if log
-          Console.comment(
-            before: "Stopping the daemon.",
-            after: "Will stop the server.",
-            given: @daemon.stop,
-          )
+          Console.log("Stopping the daemon.")
         end
+
+        @daemon.stop
 
         spawn do
           sleep 1.second
           # We gave the server some time to send the OK response;
           # now we can quit. Maybe there's a better approach
           # though?
-          Kemal.stop
+          exit 0
         end
       in .ping?
         return Response.ok("pong")
@@ -184,20 +162,33 @@ module Inquirer
 
     # Starts serving the API.
     def serve
-      logging false
-
-      # We don't need static files.
-      serve_static false
-
-      add_handler ConnectionHandler.new
-
-      post "/" do |env|
-        respond_to(env.request.body.try &.gets_to_end).to_json
+      server = HTTP::Server.new do |context|
+        req, res = context.request, context.response
+        # 1) Set response type.
+        res.content_type = "application/json"
+        res.headers["Connection"] = "keep-alive"
+        # 2) Validate the request.
+        res.status = HTTP::Status::IM_A_TEAPOT
+        next unless req.method == "POST" && req.resource == "/"
+        # 3) Read the body.
+        body = req.body.try(&.gets_to_end)
+        # 4) Respond to body.
+        res.status = HTTP::Status::OK
+        res.print respond_to(body).to_json
       end
 
-      Kemal.run(@config.port, args: nil) do |config|
-        Kemal.config.shutdown_message = false
+      address = server.bind_tcp("0.0.0.0", @config.port)
+
+      at_exit do
+        Console.comment(
+          before: "Shutting down the server...",
+          after: "Server shut down.",
+          given: server.close
+        )
       end
+
+      Console.done("API listening on #{address}")
+      server.listen
     end
   end
 end

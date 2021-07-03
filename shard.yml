@@ -1,5 +1,6 @@
 name: inquirer
 version: 0.1.1-rev01
+crystal: 1.0.0
 
 authors:
   - Alexey Yurchenko <homonoidian@yandex.ru>

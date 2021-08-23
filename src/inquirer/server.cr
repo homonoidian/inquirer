@@ -156,7 +156,7 @@ module Inquirer
         clean_base = Path[@config.origin].expand(base: "/")
         clean_arg = Path[arg].expand(base: clean_base)
 
-        unless clean_arg.parent == clean_base
+        unless clean_arg.to_s.starts_with?(clean_base.to_s)
           return Response.err("filepath left origin")
         end
 

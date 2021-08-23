@@ -8,8 +8,9 @@ module Inquirer
   class Client
     include Protocol
 
-    # Makes a client from the given Inquirer *config*.
-    def initialize(@config : Config)
+    # Makes a client from the given Inquirer *config*, and with
+    # a *host* to connect to (defaults to localhost-ish).
+    def initialize(@config : Config, @host = "0.0.0.0")
     end
 
     # Sends raw *request* to the server.
@@ -19,11 +20,11 @@ module Inquirer
     # at all).
     def send(request : Request) : Response
       response = HTTP::Client.post(
-        url: "0.0.0.0:#{@config.port}",
+        url: "#{@host}:#{@config.port}",
         body: request.to_json,
         headers: HTTP::Headers{
-          "User-Agent" => "Inquirer Client",
-          "Content-Type" => "application/json"
+          "User-Agent"   => "Inquirer Client",
+          "Content-Type" => "application/json",
         }
       )
 

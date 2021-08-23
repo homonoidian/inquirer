@@ -30,8 +30,8 @@ module Inquirer
       raise InquirerError.new(response.result.as? String) if response.status.err?
 
       case result = response.result
-      in Nil then puts response.status
-      in Array then puts result.join("\n")
+      in Nil    then puts response.status
+      in Array  then puts result.join("\n")
       in String then puts result
       in Hash(String, Array(String))
         result.each do |head, children|
@@ -47,15 +47,15 @@ module Inquirer
     # Returns the Commander command line interface for Inquirer.
     def main
       Commander::Command.new do |cmd|
-        cmd.use   = "inquirer [global options --]"
-        cmd.long  = "Command line interface to the Inquirer infrastructure."
+        cmd.use = "inquirer [global options --]"
+        cmd.long = "Command line interface to the Inquirer infrastructure."
 
         # -p, --port
         cmd.flags.add do |flag|
-          flag.name        = "port"
-          flag.short       = "-p"
-          flag.long        = "--port"
-          flag.default     = 12879
+          flag.name = "port"
+          flag.short = "-p"
+          flag.long = "--port"
+          flag.default = 12879
           flag.description = "Set referent Inquirer server port."
         end
 
@@ -78,38 +78,38 @@ module Inquirer
 
         # start [...]
         cmd.commands.add do |cmd|
-          cmd.use   = "start"
+          cmd.use = "start"
           cmd.short = "Start Inquirer daemon & server."
-          cmd.long  = cmd.short
+          cmd.long = cmd.short
 
           # -d, --detach
           cmd.flags.add do |flag|
-            flag.name        = "detached"
-            flag.short       = "-d"
-            flag.long        = "--detach"
-            flag.default     = false
+            flag.name = "detached"
+            flag.short = "-d"
+            flag.long = "--detach"
+            flag.default = false
             flag.description = "Run Inquirer in background."
           end
 
           # -i, --ignore
           cmd.flags.add do |flag|
-            flag.name        = "ignore"
-            flag.short       = "-i"
-            flag.long        = "--ignore"
-            flag.default     = "node_modules"
+            flag.name = "ignore"
+            flag.short = "-i"
+            flag.long = "--ignore"
+            flag.default = "node_modules"
             flag.description = "Directories that are not watched (comma-separated)."
           end
 
           # --here
           cmd.flags.add do |flag|
-            flag.name        = "here"
-            flag.long        = "--here"
-            flag.default     = false
+            flag.name = "here"
+            flag.long = "--here"
+            flag.default = false
             flag.description = "Set watch origin to the working directory."
           end
 
           cmd.run do |options, arguments|
-            @config.origin = Dir.current if options.bool["here"]
+            @config.origin = File.expand_path(".") if options.bool["here"]
             @config.ignore += options.string["ignore"].split(",")
             @config.detached = options.bool["detached"]
 
@@ -126,9 +126,9 @@ module Inquirer
 
         # stop [...]
         cmd.commands.add do |cmd|
-          cmd.use   = "stop"
+          cmd.use = "stop"
           cmd.short = "Stop Inquirer daemon & server."
-          cmd.long  = cmd.short
+          cmd.long = cmd.short
 
           cmd.run do |options, arguments|
             Client.from(@config)
@@ -140,17 +140,17 @@ module Inquirer
 
         # shell [...]
         cmd.commands.add do |cmd|
-          cmd.use   = "shell"
+          cmd.use = "shell"
           cmd.short = "Start an interactive shell to talk to Inquirer."
-          cmd.long  = cmd.short
+          cmd.long = cmd.short
 
           cmd.run do |options, arguments|
-            fancy  = Fancyline.new
+            fancy = Fancyline.new
             client = Client.from(@config).running!(exit: true)
 
             puts "[Inquirer #{VERSION}]".colorize.bold,
-                 "#{"Hint".colorize.green}: Type 'commands' for a list of commands.",
-                 "#{"Hint".colorize.green}: Hit CTRL+D to exit."
+              "#{"Hint".colorize.green}: Type 'commands' for a list of commands.",
+              "#{"Hint".colorize.green}: Hit CTRL+D to exit."
             puts
 
             loop do
@@ -186,6 +186,5 @@ module Inquirer
     end
   end
 end
-
 
 Inquirer::CLI.start(ARGV)

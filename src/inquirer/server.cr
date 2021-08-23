@@ -9,16 +9,17 @@ module Inquirer
     private alias Distinct = Array(String)
 
     # A regex that matches the characters Ven reader ignores,
-    # assuming they are at the start of the string.
-    RX_VEN_IGNORES  = /^(?:[ \n\r\t]+|#(?:[ \t][^\n]*|\n+))/
+    # assuming they are at the start of the matchee string.
+    RX_VEN_IGNORES = /^(?:[ \n\r\t]+|#(?:[ \t][^\n]*|\n+))/
 
     # A regex that matches Ven distinct statement, assuming
-    # it is at the start of the string.
+    # it is at the start of the matchee string.
     RX_VEN_DISTINCT = /^distinct\s+(\w[\.\w]*(?<!\.))(;|;?$)/
 
     # Makes a Server from the given *config*.
     #
-    # *daemon* is the daemon that the new server will control.
+    # *daemon* is the daemon that the new server will have
+    # control over.
     def initialize(@config : Config, @daemon : Daemon)
       @repo = {} of Distinct => Array(String)
     end
@@ -99,17 +100,21 @@ module Inquirer
       case request.command
       in .ps?
         return Response.ok @daemon.watchables[...arg.to_i]
-      in .add?
-        return Response.err("invalid filepath") unless
-          File.readable?(arg) &&
-          File.exists?(arg) &&
-          File.file?(arg)
+      in .relook?
+        unless File.file?(arg) && File.readable?(arg)
+          return Response.err("invalid filepath")
+        end
 
         contents = File.read(arg)
 
         if distinct = distinct?(contents)
+          # Found a valid distinct statement in the file,
+          # subscribe the file to the distinct in the repo.
           subscribe(distinct, arg)
         else
+          # Did not find a valid distinct statement. If the
+          # file was in the repository, remove all mentions
+          # of it.
           purge(arg)
         end
       in .die?
@@ -122,15 +127,14 @@ module Inquirer
         spawn do
           sleep 1.second
           # We gave the server some time to send the OK response;
-          # now we can quit. Maybe there's a better approach
-          # though?
+          # now we can quit. Is there a better approach, though?
           exit 0
         end
       in .ping?
         return Response.ok("pong")
       in .repo?
         return Response.ok(@repo.keys.map(&.join ".").zip(@repo.values).to_h)
-      in .unperson?
+      in .purge?
         purge(arg)
       in .commands?
         return Response.ok({{Protocol::Command.constants.map(&.stringify.downcase)}})
@@ -140,6 +144,36 @@ module Inquirer
         else
           return Response.err("no such distinct")
         end
+      in .source_for?
+        # Reading files like that is damn dangerous, as anyone
+        # with access to port 12879, or whatever other Inquirer
+        # port, can send `SourceFor /etc/passwd`!
+        #
+        # As a security precaution, we (a) set the argument path's
+        # base to the origin directory path, and (b) expand the
+        # argument path to check whether it still talks about
+        # the origin directory.
+        clean_base = Path[@config.origin].expand(base: "/")
+        clean_arg = Path[arg].expand(base: clean_base)
+
+        unless clean_arg.parent == clean_base
+          return Response.err("filepath left origin")
+        end
+
+        # Make sure that the resulting file extension is '.ven',
+        # so we do not extrinsic files.
+        unless clean_arg.extension == ".ven"
+          return Response.err("can reference only files with .ven extension")
+        end
+
+        unless File.file?(clean_arg) && File.readable?(clean_arg)
+          return Response.err("no such target")
+        end
+
+        # And only when we are sure the filename is clean,
+        # and exists, we read the file and send over its
+        # source code.
+        return Response.ok File.read(clean_arg)
       end
 
       Response.ok

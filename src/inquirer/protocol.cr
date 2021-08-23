@@ -16,15 +16,19 @@ module Inquirer::Protocol
     # Lists N directories out of those that are currently
     # watched.
     Ps = 2048
-    # Adds a program to the repository given an abolute path
-    # to the source file of the program.
-    Add
+    # Relooks at a Ven program given an absolute path to the
+    # source file of the program.
+    Relook
     # Removes all mentions of the given source file from
     # the repository.
-    Unperson
+    Purge
     # Returns which files to run in order to load the
-    # given distinct.
+    # given distinct, with the origin directory being
+    # the root directory of each filepath.
     FilesFor
+    # Returns the source code for the given filename in
+    # the origin directory.
+    SourceFor
 
     # Returns whether this command takes an argument.
     def takes_argument?

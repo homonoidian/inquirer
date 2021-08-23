@@ -25,8 +25,8 @@ module Inquirer
 
       Console.comment(
         before: "Searching for watchables in #{@origin}...",
-        after:  "Found #{@watchables.size} watchables.",
-        given:  @watchables = watchables!
+        after: "Found #{@watchables.size} watchables.",
+        given: @watchables = watchables!
       )
 
       allowed = MAX_WATCHES > @watchables.size
@@ -67,8 +67,8 @@ module Inquirer
     def watchable?(path : String) : Bool
       !path.split("/", remove_empty: true).any? { |part|
         part.starts_with?('_') ||
-        part.starts_with?('.') ||
-        part.in?(@ignore)
+          part.starts_with?('.') ||
+          part.in?(@ignore)
       }
     end
 
@@ -83,8 +83,9 @@ module Inquirer
     def register_existing_files(server : Inquirer::Server)
       @watchables.each do |watchable|
         Dir["#{watchable}/[^_]*.ven"].each do |file|
-          Console.overwrite("Add: #{file}")
-          server.execute(Request.new(Command::Add, file), log: false)
+          Console.overwrite("Relook: #{file}")
+
+          server.execute(Request.new(Command::Relook, file), log: false)
         end
         Console.update("In: #{watchable}")
       end
@@ -123,9 +124,9 @@ module Inquirer
         Console.log("Ven file change detected: #{event_path}")
         case event.type
         when .modify?, .moved_to?
-          server.execute Request.new(Command::Add, event_path)
+          server.execute Request.new(Command::Relook, event_path)
         when .delete?, .moved_from?
-          server.execute Request.new(Command::Unperson, event_path)
+          server.execute Request.new(Command::Purge, event_path)
         else
           Console.error("Unhandled event: #{event}")
         end
